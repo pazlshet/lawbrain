@@ -1,5 +1,11 @@
 # LawBrain — Multilingual Document Intelligence
 
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![FastEmbed](https://img.shields.io/badge/FastEmbed-e5--large-orange?logo=huggingface&logoColor=white)](https://huggingface.co/intfloat/multilingual-e5-large)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-vector%20store-green)](https://www.trychroma.com/)
+[![Offline](https://img.shields.io/badge/runs-fully%20offline-brightgreen)](#)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+
 A production-grade document intelligence system built for large, multilingual corpora.
 Originally developed to manage 1,800+ legal documents across Russian, Kazakh, and English.
 
