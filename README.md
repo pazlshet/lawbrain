@@ -17,8 +17,9 @@ Originally developed to manage 1,800+ legal documents across Russian, Kazakh, an
 Documents (PDF, MD, TXT)
     │
     ▼
-build_fulltext_index.py   ← extracts text from PDFs, mirrors folder structure
-    │
+build_fulltext_index.py   ← two-stage extraction:
+    │                          1. PyMuPDF (fast) — text-layer PDFs
+    │                          2. Docling OCR   — scanned/image-only PDFs
     ▼
 semantic_index.py          ← chunks text, embeds with e5-large, stores in ChromaDB
     │
@@ -30,11 +31,13 @@ ChromaDB vector store      ← queryable by cosine similarity, filtered by categ
 
 | File | Purpose |
 |------|---------|
-| `build_fulltext_index.py` | Extract text from PDF/MD/TXT into a flat `.txt` index |
+| `build_fulltext_index.py` | Two-stage PDF extraction: PyMuPDF (fast) + Docling OCR (scans) |
 | `semantic_index.py` | Embed text chunks and upsert into ChromaDB (local, no API) |
 | `mail_client.py` | CLI mail interface for Maildir/IMAP + SMTP, designed for AI agent use |
 
 ## Key design decisions
+
+**Two-stage PDF extraction.** PyMuPDF handles text-layer PDFs at ~350 files/min. When PyMuPDF finds an image-only scan, [Docling](https://github.com/docling-project/docling) (IBM, Apache 2.0) takes over: it runs AI-based layout analysis + OCR, preserves table structure, and outputs clean Markdown. This means scanned court orders, medical records, and handwritten statements are indexed instead of silently skipped. Flags: `--no-docling` (old behaviour), `--docling-all` (force docling for every PDF), `--ocr-only` (re-process the `scans_no_ocr.txt` backlog from a prior run).
 
 **Fully offline embeddings.** Uses [intfloat/multilingual-e5-large](https://huggingface.co/intfloat/multilingual-e5-large) via FastEmbed — 1024-dim, supports 100+ languages, runs locally with no API calls and no rate limits. First download is ~450 MB, then cached.
 
@@ -51,10 +54,19 @@ ChromaDB vector store      ← queryable by cosine similarity, filtered by categ
 ```bash
 pip install -r requirements.txt
 
-# 1. Extract text from your documents
+# 1. Extract text (PyMuPDF fast path + Docling OCR for scans)
 python build_fulltext_index.py --base /path/to/your/documents
 
-# 2. Build the semantic index (takes time on first run — model downloads ~450 MB)
+# First run downloads Docling models (~258 MB, cached afterwards).
+# After the run, scans_no_ocr.txt lists any files docling also failed on.
+
+# Re-process only the scan backlog from a previous run (no docling = no list):
+python build_fulltext_index.py --base /path/to/your/documents --ocr-only
+
+# Skip OCR entirely (fast, but scans are skipped):
+python build_fulltext_index.py --base /path/to/your/documents --no-docling
+
+# 2. Build the semantic index (downloads ~450 MB e5-large on first run)
 export LAWBRAIN_INDEX_DIR=/path/to/your/documents/_INDEX/fulltext
 export LAWBRAIN_CHROMA_DIR=./data/chroma
 python semantic_index.py --reset
